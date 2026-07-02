@@ -1,20 +1,36 @@
 package com.techlab.ecommerce.service.impl;
 
-import com.techlab.ecommerce.entity.Order;
+import com.techlab.ecommerce.dto.CreateOrderItemRequest;
+import com.techlab.ecommerce.dto.CreateOrderRequest;
+import com.techlab.ecommerce.entity.*;
+import com.techlab.ecommerce.enums.OrderStatus;
 import com.techlab.ecommerce.exception.ResourceNotFoundException;
-import com.techlab.ecommerce.repository.OrderRepository;
+import com.techlab.ecommerce.exception.StockInsufficientException;
+import com.techlab.ecommerce.repository.*;
 import com.techlab.ecommerce.service.OrderService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
+    private final ProductRepository productRepository;
+    private final OrderItemRepository orderItemRepository;
 
-    public OrderServiceImpl(OrderRepository orderRepository) {
+    public OrderServiceImpl(OrderRepository orderRepository,
+                            UserRepository userRepository,
+                            ProductRepository productRepository,
+                            OrderItemRepository orderItemRepository) {
+
         this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
+        this.productRepository = productRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     @Override
@@ -24,29 +40,54 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order findById(Long id) {
-        return orderRepository.findById(id).orElse(null);
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
     }
 
     @Override
-    public Order save(Order order) {
-        return orderRepository.save(order);
-    }
+    public Order createOrder(CreateOrderRequest request) {
 
-    @Override
-    public Order update(Long id, Order order) {
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        Order existingOrder = findById(id);
+        Order order = new Order();
+        order.setUser(user);
+        order.setOrderDate(LocalDateTime.now());
+        order.setStatus(OrderStatus.PENDING);
+        order.setTotal(0.0);
 
-        if (existingOrder == null) {
-            throw new ResourceNotFoundException("Order not found with id: " + id);
+        order = orderRepository.save(order);
+
+        double total = 0.0;
+        List<OrderItem> items = new ArrayList<>();
+
+        for (CreateOrderItemRequest itemRequest : request.getItems()) {
+
+            Product product = productRepository.findById(itemRequest.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+            if (product.getStock() < itemRequest.getQuantity()) {
+                throw new StockInsufficientException("Not enough stock for product: " + product.getName());
+            }
+
+            product.setStock(product.getStock() - itemRequest.getQuantity());
+            productRepository.save(product);
+
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setProduct(product);
+            item.setQuantity(itemRequest.getQuantity());
+            item.setUnitPrice(product.getPrice());
+
+            orderItemRepository.save(item);
+
+            items.add(item);
+
+            total += product.getPrice() * itemRequest.getQuantity();
         }
 
-        existingOrder.setOrderDate(order.getOrderDate());
-        existingOrder.setTotal(order.getTotal());
-        existingOrder.setStatus(order.getStatus());
-        existingOrder.setUser(order.getUser());
-
-        return orderRepository.save(existingOrder);
+        order.setTotal(total);
+        return orderRepository.save(order);
     }
 
     @Override

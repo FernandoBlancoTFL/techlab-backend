@@ -1,5 +1,6 @@
 package com.techlab.ecommerce.controller;
 
+import com.techlab.ecommerce.dto.CreateOrderRequest;
 import com.techlab.ecommerce.entity.Order;
 import com.techlab.ecommerce.service.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -28,14 +29,8 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Order> create(@RequestBody Order order) {
-        return ResponseEntity.ok(orderService.save(order));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Order> update(@PathVariable Long id,
-                                       @RequestBody Order order) {
-        return ResponseEntity.ok(orderService.update(id, order));
+    public ResponseEntity<Order> create(@RequestBody CreateOrderRequest request) {
+        return ResponseEntity.ok(orderService.createOrder(request));
     }
 
     @DeleteMapping("/{id}")
