@@ -1,6 +1,7 @@
 package com.techlab.ecommerce.controller;
 
 import com.techlab.ecommerce.dto.CreateOrderRequest;
+import com.techlab.ecommerce.dto.OrderResponse;
 import com.techlab.ecommerce.entity.Order;
 import com.techlab.ecommerce.service.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -37,5 +38,16 @@ public class OrderController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         orderService.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<OrderResponse>> getByUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
+    }
+
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancel(@PathVariable Long id) {
+        orderService.cancelOrder(id);
+        return ResponseEntity.ok().build();
     }
 }

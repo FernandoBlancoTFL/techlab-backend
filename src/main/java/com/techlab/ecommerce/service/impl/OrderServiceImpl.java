@@ -2,6 +2,8 @@ package com.techlab.ecommerce.service.impl;
 
 import com.techlab.ecommerce.dto.CreateOrderItemRequest;
 import com.techlab.ecommerce.dto.CreateOrderRequest;
+import com.techlab.ecommerce.dto.OrderItemResponse;
+import com.techlab.ecommerce.dto.OrderResponse;
 import com.techlab.ecommerce.entity.*;
 import com.techlab.ecommerce.enums.OrderStatus;
 import com.techlab.ecommerce.exception.ResourceNotFoundException;
@@ -93,5 +95,58 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public void deleteById(Long id) {
         orderRepository.deleteById(id);
+    }
+
+    @Override
+    public List<OrderResponse> getOrdersByUserId(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<Order> orders = orderRepository.findAll()
+                .stream()
+                .filter(o -> o.getUser().getId().equals(userId))
+                .toList();
+
+        List<OrderResponse> responseList = new ArrayList<>();
+
+        for (Order order : orders) {
+
+            OrderResponse response = new OrderResponse();
+            response.setId(order.getId());
+            response.setUserId(userId);
+            response.setOrderDate(order.getOrderDate());
+            response.setTotal(order.getTotal());
+            response.setStatus(order.getStatus());
+
+            List<OrderItemResponse> items = new ArrayList<>();
+
+            for (OrderItem item : order.getItems()) {
+
+                OrderItemResponse itemResponse = new OrderItemResponse();
+                itemResponse.setProductName(item.getProduct().getName());
+                itemResponse.setQuantity(item.getQuantity());
+                itemResponse.setUnitPrice(item.getUnitPrice());
+                itemResponse.setSubtotal(item.getQuantity() * item.getUnitPrice());
+
+                items.add(itemResponse);
+            }
+
+            response.setItems(items);
+            responseList.add(response);
+        }
+
+        return responseList;
+    }
+
+    @Override
+    public void cancelOrder(Long id) {
+
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        order.setStatus(OrderStatus.CANCELLED);
+
+        orderRepository.save(order);
     }
 }
